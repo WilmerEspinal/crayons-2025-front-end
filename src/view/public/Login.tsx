@@ -52,7 +52,13 @@ export default function Login() {
       console.log("RoleId obtenido:", roleId);
 
       login(token, roleId);
-      navigate("/dashboard");
+      if (roleId === 3) {
+        navigate("/dashboard");
+      } else if (roleId === 2) {
+        navigate("/teacher");
+      } else {
+        navigate("/"); // o una página de error/no autorizado
+      }
     } catch (error: any) {
       console.error("Error completo:", error);
 

@@ -14,6 +14,9 @@ import RegsiterStudent from "@/view/private/RegisterStudent";
 import RegisterTeacher from "@/view/private/RegisterTeacher";
 import ProtectedRoute from "./ProtectedRoute";
 
+import TeacherDashboard from "@/view/private/teacher/teacherDashboard";
+import RegistrarAsistencia from "@/view/private/teacher/RegistrarAsistencia";
+
 // Componente para protección de rutas
 
 const router = createBrowserRouter([
@@ -35,7 +38,7 @@ const router = createBrowserRouter([
   {
     path: "/dashboard/",
     element: (
-      <ProtectedRoute allowedRoles={[1]}>
+      <ProtectedRoute allowedRoles={[3]}>
         <Page /> {/* Este es tu layout del dashboard */}
       </ProtectedRoute>
     ),
@@ -46,6 +49,19 @@ const router = createBrowserRouter([
       { path: "register-teacher", element: <RegisterTeacher /> },
       { path: "list-teacher", element: <ListTeacher /> },
     ],
+  },
+  {
+    path: "/teacher/",
+    element: (
+      <ProtectedRoute allowedRoles={[2]}>
+        <TeacherDashboard />
+      </ProtectedRoute>
+    ),
+    children: [
+      // { index: true, element: <ListStudent /> }, // Página por defecto del dashboard
+      { path: "registar-asistencia", element: <RegistrarAsistencia /> },
+    ],
+    // children: [{ path: "list-teacher", element: <ListTeacher /> }],
   },
 ]);
 
