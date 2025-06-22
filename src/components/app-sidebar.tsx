@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useState } from "react";
 
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
@@ -14,8 +15,15 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Link } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+
+  const toggleGroup = (title: string) => {
+    setExpandedGroup(prev => prev === title ? null : title);
+  };
+
   const data = {
     versions: ["1.0.0"],
     navMain: [
@@ -51,6 +59,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Gestión de Cuotas",
         url: "#",
         items: [
+          {
+            title: "Programar cuota",
+            url: "/dashboard/programar-cuotas",
+          },
           {
             title: "Cuotas",
             url: "#/cuotas",
@@ -89,18 +101,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         {data.navMain.map((item) => (
           <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {item.items.map((subItem) => (
-                  <SidebarMenuItem key={subItem.title}>
-                    <SidebarMenuButton asChild>
-                      <Link to={subItem.url}>{subItem.title}</Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
+            <SidebarGroupLabel 
+              onClick={() => toggleGroup(item.title)}
+              className="cursor-pointer flex items-center justify-between"
+            >
+              {item.title}
+              {expandedGroup === item.title ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </SidebarGroupLabel>
+            {expandedGroup === item.title && (
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {item.items.map((subItem) => (
+                    <SidebarMenuItem key={subItem.title}>
+                      <SidebarMenuButton asChild>
+                        <Link to={subItem.url}>{subItem.title}</Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            )}
           </SidebarGroup>
         ))}
       </SidebarContent>

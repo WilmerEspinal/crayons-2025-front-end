@@ -16,6 +16,7 @@ import ProtectedRoute from "./ProtectedRoute";
 
 import TeacherDashboard from "@/view/private/teacher/teacherDashboard";
 import RegistrarAsistencia from "@/view/private/teacher/RegistrarAsistencia";
+import CuotasProgramar from "@/view/private/teacher/CuotasProgramar";
 
 // Componente para protección de rutas
 
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: "list-student", element: <ListStudent /> },
       { path: "register-teacher", element: <RegisterTeacher /> },
       { path: "list-teacher", element: <ListTeacher /> },
+      { path: "programar-cuotas", element: <CuotasProgramar /> },
     ],
   },
   {

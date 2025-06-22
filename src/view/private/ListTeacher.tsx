@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import axios from "axios";
+import { Download } from "lucide-react";
 
 interface Curso {
   curso: string;
@@ -63,6 +64,32 @@ export default function ListTeacher() {
 
   const anios = ["2024", "2025", "2026"]; // Puedes ajustar los años según necesites
 
+  const handleExportar = async () => {
+    try {
+      const response = await axios.get(
+        `http://localhost:3000/api/docente/exportar/${anioSeleccionado}`,
+        {
+          responseType: 'blob',
+          params: {
+            orden: 'desc'
+          }
+        }
+      );
+      
+      // Crear un enlace temporal para descargar el archivo
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `docentes_${anioSeleccionado}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error al exportar los datos:", error);
+      alert("Error al exportar los datos");
+    }
+  };
+
   if (loading) {
     return <div className="text-center p-6">Cargando docentes...</div>;
   }
@@ -71,20 +98,30 @@ export default function ListTeacher() {
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Lista de Docentes</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Año:</span>
-          <Select value={anioSeleccionado} onValueChange={setAnioSeleccionado}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="Selecciona año" />
-            </SelectTrigger>
-            <SelectContent>
-              {anios.map((anio) => (
-                <SelectItem key={anio} value={anio}>
-                  {anio}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-4">
+          <Button 
+            onClick={handleExportar}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Exportar Excel
+          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Año:</span>
+            <Select value={anioSeleccionado} onValueChange={setAnioSeleccionado}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Selecciona año" />
+              </SelectTrigger>
+              <SelectContent>
+                {anios.map((anio) => (
+                  <SelectItem key={anio} value={anio}>
+                    {anio}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

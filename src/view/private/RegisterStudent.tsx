@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import clsx from "clsx";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 const steps = [
   { id: 1, title: "Estudiante" },
@@ -30,19 +30,63 @@ type Grado = {
   updated_at: string;
 };
 
+interface FormData {
+  // Alumno
+  alumno_dni: string;
+  alumno_nombre: string;
+  alumno_ap_p: string;
+  alumno_ap_m: string;
+  alumno_fecha_nacimiento: string;
+  alumno_email: string;
+  id_grado: string;
+  tipo_ingreso: string;
+
+  // Apoderado
+  apoderado_dni: string;
+  apoderado_nombre: string;
+  apoderado_ap_p: string;
+  apoderado_ap_m: string;
+  apoderado_fecha_nacimiento: string;
+  apoderado_telefono: string;
+  apoderado_relacion: string;
+
+  // Documentos
+  dni_entregado: boolean;
+  certificado_estudios: boolean;
+
+  // Económico
+  matricula_precio: number;
+  costo_cuota: number;
+  año_academico: string;
+  // Cuotas mensuales
+  [key: string]: string | number | boolean;
+  c1: number;
+  c2: number;
+  c3: number;
+  c4: number;
+  c5: number;
+  c6: number;
+  c7: number;
+  c8: number;
+  c9: number;
+  c10: number;
+}
+
+interface ErrorResponse {
+  message: string;
+}
+
 export default function RegisterStudent() {
   const [step, setStep] = useState(0);
   const [grados, setGrados] = useState<Grado[]>([]);
   const [loading, setLoading] = useState(false);
-  const [alumnoExiste, setAlumnoExiste] = useState(false);
-  const [alumnoData, setAlumnoData] = useState<any>(null);
   const [message, setMessage] = useState<{
     text: string;
     isError: boolean;
   } | null>(null);
 
   // Form data state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Alumno
     alumno_dni: "",
     alumno_nombre: "",
@@ -51,6 +95,7 @@ export default function RegisterStudent() {
     alumno_fecha_nacimiento: "",
     alumno_email: "",
     id_grado: "",
+    tipo_ingreso: "",
 
     // Apoderado
     apoderado_dni: "",
@@ -67,6 +112,9 @@ export default function RegisterStudent() {
 
     // Económico
     matricula_precio: 0,
+    costo_cuota: 0,
+    año_academico: "",
+    // Cuotas mensuales
     c1: 0,
     c2: 0,
     c3: 0,
@@ -79,6 +127,65 @@ export default function RegisterStudent() {
     c10: 0,
   });
 
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const validateField = (name: string, value: string | number | boolean) => {
+    // Convertir el valor a string para la validación
+    const stringValue = value.toString();
+    
+    switch (name) {
+      case 'alumno_dni':
+        if (!stringValue) return 'El DNI es obligatorio';
+        if (stringValue.length !== 8) return 'El DNI debe tener 8 dígitos';
+        return '';
+      case 'alumno_nombre':
+        if (!stringValue) return 'El nombre es obligatorio';
+        return '';
+      case 'alumno_ap_p':
+        if (!stringValue) return 'El apellido paterno es obligatorio';
+        return '';
+      case 'alumno_ap_m':
+        if (!stringValue) return 'El apellido materno es obligatorio';
+        return '';
+      case 'alumno_fecha_nacimiento':
+        if (!stringValue) return 'La fecha de nacimiento es obligatoria';
+        return '';
+      case 'id_grado':
+        if (!stringValue) return 'Debe seleccionar un grado';
+        return '';
+      case 'tipo_ingreso':
+        if (!stringValue) return 'Debe seleccionar el tipo de ingreso';
+        return '';
+      case 'apoderado_dni':
+        if (!stringValue) return 'El DNI del apoderado es obligatorio';
+        if (stringValue.length !== 8) return 'El DNI debe tener 8 dígitos';
+        return '';
+      case 'apoderado_nombre':
+        if (!stringValue) return 'El nombre del apoderado es obligatorio';
+        return '';
+      case 'apoderado_ap_p':
+        if (!stringValue) return 'El apellido paterno del apoderado es obligatorio';
+        return '';
+      case 'apoderado_ap_m':
+        if (!stringValue) return 'El apellido materno del apoderado es obligatorio';
+        return '';
+      case 'apoderado_telefono':
+        if (!stringValue) return 'El teléfono del apoderado es obligatorio';
+        if (stringValue.length !== 9) return 'El teléfono debe tener 9 dígitos';
+        return '';
+      case 'matricula_precio':
+        if (!stringValue) return 'El precio de matrícula es obligatorio';
+        if (Number(stringValue) <= 0) return 'El precio debe ser mayor a 0';
+        return '';
+      case 'costo_cuota':
+        if (!stringValue) return 'El costo de cuota es obligatorio';
+        if (Number(stringValue) <= 0) return 'El costo debe ser mayor a 0';
+        return '';
+      default:
+        return '';
+    }
+  };
+
   const nextStep = () => setStep((s) => Math.min(s + 1, steps.length - 1));
   const prevStep = () => setStep((s) => Math.max(s - 1, 0));
 
@@ -90,7 +197,7 @@ export default function RegisterStudent() {
           "http://localhost:3000/api/grado/lista-grado"
         );
         setGrados(response.data.data);
-      } catch (error) {
+      } catch {
         setMessage({ text: "No se pudieron cargar los grados", isError: true });
       }
     };
@@ -99,10 +206,66 @@ export default function RegisterStudent() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
+    const newValue = type === "checkbox" ? checked : 
+                    type === "number" ? Number(value) : value;
+    
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [name]: newValue,
+      };
+
+      // Si es un checkbox de cuota, actualizar el valor correspondiente
+      if (name.startsWith('cuota_')) {
+        const mesIndex = {
+          'cuota_marzo': 'c1',
+          'cuota_abril': 'c2',
+          'cuota_mayo': 'c3',
+          'cuota_junio': 'c4',
+          'cuota_julio': 'c5',
+          'cuota_agosto': 'c6',
+          'cuota_septiembre': 'c7',
+          'cuota_octubre': 'c8',
+          'cuota_noviembre': 'c9',
+          'cuota_diciembre': 'c10'
+        }[name] as keyof FormData;
+
+        if (mesIndex) {
+          newFormData[mesIndex] = checked ? Number(prev.costo_cuota) : 0;
+        }
+      }
+
+      return newFormData;
     });
+
+    // Validar el campo
+    const error = validateField(name, newValue);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+  };
+
+  // Función para obtener los costos del año
+  const obtenerCostosAnio = async (anio: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:3000/api/cuotas/anio/${anio}`);
+      if (response.data.success) {
+        setFormData(prev => ({
+          ...prev,
+          matricula_precio: parseFloat(response.data.data.costo_matricula),
+          costo_cuota: parseFloat(response.data.data.costo_cuotas)
+        }));
+      }
+    } catch {
+      setMessage({
+        text: "Error al cargar los costos del año",
+        isError: true
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -110,7 +273,61 @@ export default function RegisterStudent() {
       ...formData,
       [name]: value,
     });
+
+    // Si se cambia el año académico, obtener los costos
+    if (name === 'año_academico') {
+      obtenerCostosAnio(value);
+    }
+
+    // Validar el campo
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
+
+  // Modificar los campos de input para mostrar errores
+  const renderInput = (name: Extract<keyof FormData, string>, label: string, type: string = "text", placeholder: string = "") => (
+    <div>
+      <Label className="">{label}</Label>
+      <Input
+        type={type}
+        name={name}
+        value={String(formData[name])}
+        onChange={handleInputChange}
+        placeholder={placeholder}
+        className={errors[name] ? "border-red-500" : ""}
+      />
+      {errors[name] && (
+        <p className="text-sm text-red-500 mt-1">{errors[name]}</p>
+      )}
+    </div>
+  );
+
+  const renderSelect = (name: Extract<keyof FormData, string>, label: string, options: { value: string; label: string }[]) => (
+    <div>
+      <Label>{label}</Label>
+      <Select
+        value={String(formData[name])}
+        onValueChange={(value) => handleSelectChange(name, value)}
+      >
+        <SelectTrigger className={errors[name] ? "border-red-500" : ""}>
+          <SelectValue placeholder={`Seleccione ${label.toLowerCase()}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {errors[name] && (
+        <p className="text-sm text-red-500 mt-1">{errors[name]}</p>
+      )}
+    </div>
+  );
 
   const verificarAlumno = async () => {
     if (!formData.alumno_dni) {
@@ -125,8 +342,6 @@ export default function RegisterStudent() {
       );
 
       if (response.data.status) {
-        setAlumnoExiste(true);
-        setAlumnoData(response.data.data);
         // Autocompletar datos del alumno existente
         setFormData((prev) => ({
           ...prev,
@@ -140,13 +355,12 @@ export default function RegisterStudent() {
           isError: false,
         });
       } else {
-        setAlumnoExiste(false);
         setMessage({
           text: "Alumno no registrado. Complete los datos",
           isError: false,
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({
         text: "Ocurrió un error al verificar el alumno",
         isError: true,
@@ -187,7 +401,7 @@ export default function RegisterStudent() {
           isError: false,
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({
         text: "Ocurrió un error al verificar el apoderado",
         isError: true,
@@ -263,6 +477,8 @@ export default function RegisterStudent() {
         dni_entregado: false,
         certificado_estudios: false,
         matricula_precio: 0,
+        costo_cuota: 0,
+        año_academico: "",
         c1: 0,
         c2: 0,
         c3: 0,
@@ -273,14 +489,14 @@ export default function RegisterStudent() {
         c8: 0,
         c9: 0,
         c10: 0,
+        tipo_ingreso: "",
       });
       setStep(0);
-      setAlumnoExiste(false);
-      setAlumnoData(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<ErrorResponse>;
       setMessage({
         text:
-          error.response?.data?.message || "Error al registrar la matrícula",
+          axiosError.response?.data?.message || "Error al registrar la matrícula",
         isError: true,
       });
     } finally {
@@ -338,13 +554,7 @@ export default function RegisterStudent() {
             <>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <Label>DNI</Label>
-                  <Input
-                    placeholder="DNI del estudiante"
-                    name="alumno_dni"
-                    value={formData.alumno_dni}
-                    onChange={handleInputChange}
-                  />
+                  {renderInput("alumno_dni", "DNI")}
                 </div>
                 <Button
                   className="self-end"
@@ -356,69 +566,29 @@ export default function RegisterStudent() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Nombre</Label>
-                  <Input
-                    name="alumno_nombre"
-                    value={formData.alumno_nombre}
-                    onChange={handleInputChange}
-                    placeholder="Nombre"
-                  />
+                  {renderSelect("tipo_ingreso", "Tipo de Ingreso", [
+                    { value: "nuevo", label: "Nuevo Ingresante" },
+                    { value: "traslado", label: "Traslado" },
+                    { value: "repitente", label: "Repitente" },
+                  ])}
                 </div>
                 <div>
-                  <Label>Apellido Paterno</Label>
-                  <Input
-                    name="alumno_ap_p"
-                    value={formData.alumno_ap_p}
-                    onChange={handleInputChange}
-                    placeholder="Apellido Paterno"
-                  />
+                  {renderInput("alumno_nombre", "Nombre")}
                 </div>
                 <div>
-                  <Label>Apellido Materno</Label>
-                  <Input
-                    name="alumno_ap_m"
-                    value={formData.alumno_ap_m}
-                    onChange={handleInputChange}
-                    placeholder="Apellido Materno"
-                  />
+                  {renderInput("alumno_ap_p", "Apellido Paterno")}
                 </div>
                 <div>
-                  <Label>Fecha de Nacimiento</Label>
-                  <Input
-                    type="date"
-                    name="alumno_fecha_nacimiento"
-                    value={formData.alumno_fecha_nacimiento}
-                    onChange={handleInputChange}
-                  />
+                  {renderInput("alumno_ap_m", "Apellido Materno")}
                 </div>
                 <div>
-                  <Label>Grado</Label>
-                  <Select
-                    value={formData.id_grado}
-                    onValueChange={(value) =>
-                      handleSelectChange("id_grado", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione grado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {grados?.map((grado) => (
-                        <SelectItem key={grado.id} value={grado.id.toString()}>
-                          {grado.descripcion}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {renderInput("alumno_fecha_nacimiento", "Fecha de Nacimiento", "date")}
                 </div>
                 <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    name="alumno_email"
-                    value={formData.alumno_email}
-                    onChange={handleInputChange}
-                  />
+                  {renderSelect("id_grado", "Grado", grados.map((g) => ({ value: g.id.toString(), label: g.descripcion })))}
+                </div>
+                <div>
+                  {renderInput("alumno_email", "Email", "email")}
                 </div>
               </div>
             </>
@@ -428,13 +598,7 @@ export default function RegisterStudent() {
             <>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <Label>DNI</Label>
-                  <Input
-                    placeholder="DNI del apoderado"
-                    name="apoderado_dni"
-                    value={formData.apoderado_dni}
-                    onChange={handleInputChange}
-                  />
+                  {renderInput("apoderado_dni", "DNI")}
                 </div>
                 <Button
                   className="self-end"
@@ -446,98 +610,142 @@ export default function RegisterStudent() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Nombre</Label>
-                  <Input
-                    name="apoderado_nombre"
-                    value={formData.apoderado_nombre}
-                    onChange={handleInputChange}
-                    placeholder="Nombre"
-                  />
+                  {renderInput("apoderado_nombre", "Nombre")}
                 </div>
                 <div>
-                  <Label>Apellido Paterno</Label>
-                  <Input
-                    name="apoderado_ap_p"
-                    value={formData.apoderado_ap_p}
-                    onChange={handleInputChange}
-                    placeholder="Apellido Paterno"
-                  />
+                  {renderInput("apoderado_ap_p", "Apellido Paterno")}
                 </div>
                 <div>
-                  <Label>Apellido Materno</Label>
-                  <Input
-                    name="apoderado_ap_m"
-                    value={formData.apoderado_ap_m}
-                    onChange={handleInputChange}
-                    placeholder="Apellido Materno"
-                  />
+                  {renderInput("apoderado_ap_m", "Apellido Materno")}
                 </div>
                 <div>
-                  <Label>Fecha de Nacimiento</Label>
-                  <Input
-                    type="date"
-                    name="apoderado_fecha_nacimiento"
-                    value={formData.apoderado_fecha_nacimiento}
-                    onChange={handleInputChange}
-                  />
+                  {renderInput("apoderado_fecha_nacimiento", "Fecha de Nacimiento", "date")}
                 </div>
                 <div>
-                  <Label>Relación</Label>
-                  <Select
-                    value={formData.apoderado_relacion}
-                    onValueChange={(value) =>
-                      handleSelectChange("apoderado_relacion", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="padre">Padre</SelectItem>
-                      <SelectItem value="madre">Madre</SelectItem>
-                      <SelectItem value="hermano">Hermano/a</SelectItem>
-                      <SelectItem value="tutor">Tutor</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {renderSelect("apoderado_relacion", "Relación", [
+                    { value: "padre", label: "Padre" },
+                    { value: "madre", label: "Madre" },
+                    { value: "hermano", label: "Hermano/a" },
+                    { value: "tutor", label: "Tutor" },
+                  ])}
                 </div>
                 <div>
-                  <Label>Teléfono</Label>
-                  <Input
-                    type="tel"
-                    name="apoderado_telefono"
-                    value={formData.apoderado_telefono}
-                    onChange={handleInputChange}
-                  />
+                  {renderInput("apoderado_telefono", "Teléfono", "tel")}
                 </div>
               </div>
             </>
           )}
 
           {step === 2 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Precio Matrícula</Label>
-                <Input
-                  placeholder="S/ 100.00"
-                  name="matricula_precio"
-                  value={formData.matricula_precio}
-                  onChange={handleInputChange}
-                  type="number"
-                />
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  {renderSelect("año_academico", "Año Académico", [
+                    { value: new Date().getFullYear().toString(), label: new Date().getFullYear().toString() },
+                    { value: (new Date().getFullYear() + 1).toString(), label: (new Date().getFullYear() + 1).toString() },
+                  ])}
+                </div>
+                <div>
+                  <div className="relative">
+                    {renderInput("matricula_precio", "Precio Matrícula", "number", "0.00")}
+                  
+                  </div>
+                </div>
+                <div>
+                  <div className="relative">
+                    {renderInput("costo_cuota", "Costo Cuota Mensual", "number", "0.00")}
+                   
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label>Precio Cuota Mensual</Label>
-                <Input
-                  placeholder="S/ 250.00"
-                  name="c1"
-                  value={formData.c1}
-                  onChange={handleInputChange}
-                  type="number"
-                />
+
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium mb-4">Cuotas del Año</h3>
+                <div className="mb-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="todas_cuotas"
+                      checked={Object.values(formData)
+                        .filter((value, index) => 
+                          index >= Object.keys(formData).indexOf('c1') && 
+                          index <= Object.keys(formData).indexOf('c10')
+                        )
+                        .every(value => Number(value) > 0)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData(prev => {
+                          const newData = { ...prev };
+                          ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'].forEach(
+                            key => newData[key as keyof FormData] = checked ? prev.costo_cuota : 0
+                          );
+                          return newData;
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <Label htmlFor="todas_cuotas" className="text-sm font-medium">
+                      Marcar/Desmarcar Todas las Cuotas
+                    </Label>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { mes: "Marzo", id: "marzo", cuota: "c1" as keyof FormData },
+                    { mes: "Abril", id: "abril", cuota: "c2" as keyof FormData },
+                    { mes: "Mayo", id: "mayo", cuota: "c3" as keyof FormData },
+                    { mes: "Junio", id: "junio", cuota: "c4" as keyof FormData },
+                    { mes: "Julio", id: "julio", cuota: "c5" as keyof FormData },
+                    { mes: "Agosto", id: "agosto", cuota: "c6" as keyof FormData },
+                    { mes: "Septiembre", id: "septiembre", cuota: "c7" as keyof FormData },
+                    { mes: "Octubre", id: "octubre", cuota: "c8" as keyof FormData },
+                    { mes: "Noviembre", id: "noviembre", cuota: "c9" as keyof FormData },
+                    { mes: "Diciembre", id: "diciembre", cuota: "c10" as keyof FormData }
+                  ].map(({ mes, id, cuota }) => {
+                    const valorCuota = formData[cuota] as number;
+                    return (
+                      <div key={id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={id}
+                          name={`cuota_${id}`}
+                          checked={valorCuota > 0}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor={id} className="text-sm">
+                          {mes} - S/. {valorCuota.toFixed(2)}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div>
-                <Label>Número de Cuotas</Label>
-                <Input placeholder="10" type="number" disabled value="10" />
+
+              <div className="bg-muted p-4 rounded-lg">
+                <h3 className="font-medium mb-2">Resumen de Pagos</h3>
+                <div className="space-y-1 text-sm">
+                  <p>Matrícula: S/. {Number(formData.matricula_precio).toFixed(2)}</p>
+                  <p>Cuota Mensual: S/. {Number(formData.costo_cuota).toFixed(2)}</p>
+                  <p>Número de Cuotas: {Object.values(formData)
+                    .filter((value, index) => 
+                      index >= Object.keys(formData).indexOf('c1') && 
+                      index <= Object.keys(formData).indexOf('c10') && 
+                      Number(value) > 0
+                    ).length}</p>
+                  <p className="font-medium pt-2">
+                    Total a Pagar: S/. {(
+                      Number(formData.matricula_precio) + 
+                      Object.values(formData)
+                        .filter((value, index) => 
+                          index >= Object.keys(formData).indexOf('c1') && 
+                          index <= Object.keys(formData).indexOf('c10')
+                        )
+                        .map(value => Number(value))
+                        .reduce((sum, value) => sum + value, 0)
+                    ).toFixed(2)}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -593,10 +801,10 @@ export default function RegisterStudent() {
                   }
                 </p>
                 <p>
-                  <strong>Matrícula:</strong> S/ {formData.matricula_precio}
+                  <strong>Matrícula:</strong> S/ {formData.matricula_precio.toFixed(2)}
                 </p>
                 <p>
-                  <strong>Cuotas:</strong> 10 de S/ {formData.c1} cada una
+                  <strong>Cuotas:</strong> 10 de S/ {formData.c1.toFixed(2)} cada una
                 </p>
                 <p>
                   <strong>Documentos:</strong>{" "}
